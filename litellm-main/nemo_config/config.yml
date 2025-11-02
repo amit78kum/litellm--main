@@ -1,0 +1,36 @@
+# NeMo Guardrails Configuration
+models:
+  - type: main
+    engine: litellm
+    model: gemini/gemini-2.5-flash-lite
+    parameters:
+      api_key: AIzaSyA4Ulh5ES15bbzJsZ7ua8hfSFZyckrdOw4
+# Define the rails to be used
+rails:
+  input:
+    flows:
+      - check jailbreak
+      - check harmful intent
+      - check off topic
+  output:
+    flows:
+      - check harmful output
+      - check policy violation
+# Prompts configuration
+prompts:
+  - task: self_check_input
+    content: |
+      You are a safety assistant checking if user input is appropriate and safe.
+      User input: {{ user_input }}
+      Is this input safe and appropriate? Answer with ONLY 'yes' or 'no'.
+  - task: self_check_output
+    content: |
+      You are a safety assistant checking if the AI response is appropriate and safe.
+      AI response: {{ bot_response }}
+      Is this response safe and appropriate? Answer with ONLY 'yes' or 'no'.
+# Sample conversations for few-shot learning
+sample_conversation: |
+  user "Hello!"
+    bot "Hi there! How can I help you today?"
+  user "What can you help me with?"
+    bot "I can assist you with various tasks and answer your questions. What would you like to know?"

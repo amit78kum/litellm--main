@@ -1,0 +1,193 @@
+# NeMo Guardrails - Colang Rails Definition
+# This file defines the conversation flows and safety rails
+# ============================================================================
+# INPUT RAILS - Check user messages before sending to LLM
+# ============================================================================
+define flow check jailbreak
+  """Check if the user is trying to jailbreak or manipulate the bot."""
+  $user_message = $user_input
+  if $user_message and "ignore your instructions" in $user_message
+    bot refuse jailbreak
+    stop
+  if $user_message and "pretend you are" in $user_message
+    bot refuse jailbreak
+    stop
+  if $user_message and "roleplay as" in $user_message
+    bot refuse jailbreak
+    stop
+  if $user_message and "forget your rules" in $user_message
+    bot refuse jailbreak
+    stop
+define flow check harmful intent
+  """Check if the user is requesting harmful or inappropriate content."""
+  $user_message = $user_input
+  # Check for harmful content requests
+  if $user_message and "how to hack" in $user_message
+    bot refuse harmful request
+    stop
+  if $user_message and "how to make a bomb" in $user_message
+    bot refuse harmful request
+    stop
+  if $user_message and "illegal activities" in $user_message
+    bot refuse harmful request
+    stop
+  if $user_message and "hate speech" in $user_message
+    bot refuse harmful request
+    stop
+define flow check off topic
+  """Check if the user is asking about topics outside the bot's scope."""
+  # This is a placeholder - customize based on your bot's purpose
+  # For a general-purpose bot, you might not want to restrict topics
+  stop
+define flow check pii_request
+  """Block requests for personally identifiable information or help to obtain it."""
+  $user_message = $user_input
+  if $user_message and "social security" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "ssn" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "passport" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "credit card" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "bank account" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "phone number" in $user_message
+    bot refuse pii
+    stop
+  if $user_message and "email address" in $user_message
+    bot refuse pii
+    stop
+
+define flow check evasion
+  """Detect and refuse attempts to bypass safety filters or instruct the model to ignore rules."""
+  $user_message = $user_input
+  if $user_message and "bypass" in $user_message
+    bot refuse evasion
+    stop
+  if $user_message and "circumvent" in $user_message
+    bot refuse evasion
+    stop
+  if $user_message and "ignore your rules" in $user_message
+    bot refuse evasion
+    stop
+  if $user_message and "translate to avoid" in $user_message
+    bot refuse evasion
+    stop
+  if $user_message and "remove safety" in $user_message
+    bot refuse evasion
+    stop
+
+define flow check sexual content
+  """Block sexual content that is explicit or involves minors/illegal situations."""
+  $user_message = $user_input
+  if $user_message and "sex with" in $user_message
+    bot refuse sexual
+    stop
+  if $user_message and "sexual" in $user_message
+    bot refuse sexual
+    stop
+  if $user_message and "porn" in $user_message
+    bot refuse sexual
+    stop
+  if $user_message and "child" in $user_message and ("sex" in $user_message or "sexual" in $user_message)
+    bot refuse sexual
+    stop
+
+define flow check malware_drugs
+  """Block instructions to create malware, weapons, or illegal drugs."""
+  $user_message = $user_input
+  if $user_message and ("malware" in $user_message or "virus" in $user_message or "ransomware" in $user_message)
+    bot refuse harmful request
+    stop
+  if $user_message and ("how to make a bomb" in $user_message or "explosive" in $user_message)
+    bot refuse harmful request
+    stop
+  if $user_message and ("how to make" in $user_message and ("drug" in $user_message or "meth" in $user_message or "heroin" in $user_message))
+    bot refuse harmful request
+    stop
+
+define flow check self_harm
+  """Detect self-harm or suicide-related requests and provide safe response/redirect."""
+  $user_message = $user_input
+  if $user_message and ("kill myself" in $user_message or "suicide" in $user_message or "want to die" in $user_message)
+    bot refer_support
+    stop
+
+# ============================================================================
+# OUTPUT RAILS - Check LLM responses before returning to user
+# ============================================================================
+define flow check harmful output
+  """Check if the bot's response contains harmful or inappropriate content."""
+  $bot_response = $bot_output
+  # Check for sensitive information leakage
+  if $bot_response and "password" in $bot_response
+    bot apologize
+    stop
+  if $bot_response and "credit card" in $bot_response
+    bot apologize
+    stop
+  # Check for harmful instructions
+  if $bot_response and "how to harm" in $bot_response
+    bot apologize
+    stop
+define flow check policy violation
+  """Check if the bot's response violates content policies."""
+  # Use LLM-based self-checking for complex policy violations
+  # This would be handled by the self_check_output task in config.yml
+  stop
+# ============================================================================
+# BOT RESPONSES - Predefined responses for common scenarios
+# ============================================================================
+define bot refuse jailbreak
+  """Refuse jailbreak attempts."""
+  "I'm sorry, I can't respond to that request. I'm designed to follow specific guidelines and I cannot ignore or change my instructions."
+define bot refuse harmful request
+  """Refuse harmful or inappropriate requests."""
+  "I'm sorry, I cannot assist with that request. It goes against my guidelines to provide information that could be harmful or illegal."
+define bot apologize
+  """Apologize when output is blocked."""
+  "I apologize, but I cannot provide that response as it violates content safety policies."
+define bot refuse pii
+  """Refuse requests for personal or sensitive data."""
+  "I can't help with requests for personal or sensitive information such as social security numbers, passport numbers, bank or credit card details."
+define bot refuse evasion
+  """Refuse attempts to bypass safety rules."""
+  "I can't assist with attempts to bypass safety or moderation rules. Please ask a different question."
+define bot refuse sexual
+  """Refuse explicit or illegal sexual requests."""
+  "I can't assist with explicit sexual content, pornography, or any sexual content involving minors or illegal situations."
+define bot refer_support
+  """Refer user to support resources for self-harm."""
+  "I'm sorry you're feeling this way. If you're in immediate danger, please contact your local emergency services. If you need someone to talk to, consider reaching out to a crisis hotline or a trusted person in your life."
+define bot greet
+  """Greet the user."""
+  "Hello! How can I help you today?"
+define bot farewell
+  """Say goodbye to the user."""
+  "Goodbye! Have a great day!"
+# ============================================================================
+# CANONICAL FORMS - Map variations to standard intents
+# ============================================================================
+define user greet
+  "hello"
+  "hi"
+  "hey"
+  "greetings"
+define user farewell
+  "goodbye"
+  "bye"
+  "see you"
+  "farewell"
+define user ask capabilities
+  "what can you do"
+  "what are your capabilities"
+  "how can you help me"
+  "what do you know"
+define bot inform capabilities
+  "I can assist you with various tasks and answer your questions. I'm here to provide helpful, safe, and accurate information."
