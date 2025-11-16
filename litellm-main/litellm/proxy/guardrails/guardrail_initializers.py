@@ -146,9 +146,9 @@ def initialize_nemo_guardrails(litellm_params: LitellmParams, guardrail: Guardra
     _nemo_callback = NemoGuardrailsGuardrail(
         guardrail_name=guardrail.get("guardrail_name", ""),
         event_hook=litellm_params.mode,
-        config_path=litellm_params.config_path,
-        llm_model=litellm_params.llm_model,
-        llm_api_key=litellm_params.llm_api_key,
+        guardrails_url=getattr(litellm_params, "guardrails_url", None),
+        config_id=getattr(litellm_params, "config_id", None),
+        timeout=getattr(litellm_params, "timeout", 30),
         default_on=litellm_params.default_on,
     )
     litellm.logging_callback_manager.add_litellm_callback(_nemo_callback)

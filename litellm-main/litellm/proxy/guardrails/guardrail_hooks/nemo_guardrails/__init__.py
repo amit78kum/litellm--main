@@ -22,11 +22,11 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
     import litellm
 
     _nemo_callback = NemoGuardrailsGuardrail(
-        config_path=getattr(litellm_params, "config_path", None),
-        llm_model=getattr(litellm_params, "llm_model", None),
-        llm_api_key=getattr(litellm_params, "llm_api_key", None),
         guardrail_name=guardrail.get("guardrail_name", ""),
         event_hook=litellm_params.mode,
+        guardrails_url=getattr(litellm_params, "guardrails_url", None),
+        config_id=getattr(litellm_params, "config_id", None),
+        timeout=getattr(litellm_params, "timeout", 30),
         default_on=litellm_params.default_on,
     )
     litellm.logging_callback_manager.add_litellm_callback(_nemo_callback)

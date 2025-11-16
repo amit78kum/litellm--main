@@ -6,19 +6,19 @@ from .base import GuardrailConfigModel
 
 
 class NemoGuardrailsConfigModel(GuardrailConfigModel):
-    """Configuration model for NeMo Guardrails"""
+    """Configuration model for NeMo Guardrails API integration"""
     
-    config_path: Optional[str] = Field(
-        default=None,
-        description="Path to the NeMo Guardrails configuration directory containing config.yml, rails.co, and actions.py. If not provided, defaults to './nemo_config'.",
+    guardrails_url: Optional[str] = Field(
+        default="http://localhost:8000",
+        description="URL of the NeMo Guardrails API server (default: http://localhost:8000)",
     )
-    llm_model: Optional[str] = Field(
+    config_id: Optional[str] = Field(
         default=None,
-        description="The LLM model to use for NeMo Guardrails (e.g., 'gemini/gemini-2.5-flash-lite'). If not provided, uses the model specified in config.yml.",
+        description="Configuration ID to use from the guardrails server. If not provided, uses the first available config.",
     )
-    llm_api_key: Optional[str] = Field(
-        default=None,
-        description="API key for the LLM model. Can be provided directly or via environment variables.",
+    timeout: Optional[int] = Field(
+        default=30,
+        description="Request timeout in seconds for API calls (default: 30)",
     )
     
     @staticmethod
