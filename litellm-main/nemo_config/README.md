@@ -8,126 +8,103 @@ This directory contains the configuration files for NeMo Guardrails integration 
 
 Main configuration file that defines:
 
-- LLM model to use (gemini/gemini-2.5-flash-lite)
-- API key configuration
-- Input and output rails
-- Prompt templates for safety checks
+### NeMo Guardrails configuration for LiteLLM
 
-### rails.co
+This folder contains an example NeMo Guardrails configuration used with the LiteLLM proxy. The README focuses on quick start, test steps, and troubleshooting (especially the "empty response" symptom).
 
-Colang file that defines conversation flows and safety rails:
+Contents
 
-- **Input Rails**: Check user messages before sending to LLM
-  - `check jailbreak`: Detects jailbreak attempts
-  - `check harmful intent`: Blocks requests for harmful content
-  - `check off topic`: Ensures queries are within scope
-- **Output Rails**: Check LLM responses before returning to user
-  - `check harmful output`: Prevents harmful responses
-  - `check policy violation`: Enforces content policies
-- **Bot Responses**: Predefined safe responses for blocked content
+- `config.yml` — main guardrails configuration (models, engines, API keys, rails)
+- `rails.co` — Colang source defining input/output rails and bot behaviours
+- `actions.py` — optional Python actions invoked from Colang
 
-### actions.py
+Quick start
 
-Custom Python actions for advanced safety checks:
+1. Create a virtualenv and install NeMo Guardrails (and dependencies):
 
-- `check_input_safety`: Additional input validation
-- `check_output_safety`: Additional output validation
-- `log_guardrail_event`: Event logging for monitoring
-- `retrieve_relevant_chunks`: RAG integration (placeholder)
-
-## Customization
-
-### Adding New Rails
-
-To add new safety checks, edit `rails.co`:
-
-```colang
-define flow check new_safety_rule
-  $user_message = $user_input
-  if "unsafe_pattern" in $user_message
-    bot refuse request
-    stop
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install nemoguardrails
 ```
 
-### Modifying LLM Model
+2. Start the NeMo Guardrails server from this repository root (example):
 
-To use a different LLM, edit `config.yml`:
-
-```yaml
-models:
-  - type: main
-    engine: litellm
-    model: your/model-name
-    parameters:
-      api_key: your_api_key_here
+```powershell
+# run the guardrails server using the local config directory
+nemoguardrails server --config nemo_config --port 8000 --verbose
 ```
 
-### Adding Custom Actions
+3. Verify the server is healthy:
 
-To add new Python actions, edit `actions.py`:
-
-```python
-@action()
-async def my_custom_action(context: Optional[dict] = None):
-    # Your custom logic here
-    return {"result": "success"}
+```powershell
+curl http://localhost:8000/v1/rails/configs
 ```
 
-## Testing
+Expected: a JSON list of available rail configurations (each has an `id`). If you get an HTML page, error, or empty response, check server logs and the `config.yml` correctness.
 
-You can test NeMo Guardrails independently:
+How to test locally (simple script)
 
-```python
-from nemoguardrails import RailsConfig, LLMRails
-config = RailsConfig.from_path("./nemo_config")
-rails = LLMRails(config)
-response = rails.generate(messages=[{
-    "role": "user",
-    "content": "Test message"
-}])
-print(response)
+- Use the provided `test_nemoguardrails_simple.py` script in repository root to exercise listing configs, a safe request and an unsafe request.
+
+Troubleshooting: empty responses or rejections
+
+- If you see logs like:
+
+  - "{'messages': [{'role': 'assistant', 'content': "I'm sorry, I cannot assist with that request..."}]}"
+  - or your proxy reports "Empty response from guardrails"
+
+  These indicate the guardrails server itself returned a rejection message (assistant role refusal) or an unexpected response format. Do the following:
+
+  1. Check the guardrails server logs (the terminal where you started `nemoguardrails server`) for errors or stack traces.
+  2. Confirm the `config.yml` has a valid `model` and that any required external API keys (OpenAI, Vertex, etc.) are provided via environment variables or the config. Missing model/API keys often cause guardrails to return empty or refusal messages.
+  3. Call the guardrails API directly and inspect raw JSON:
+
+```powershell
+# list configs
+curl http://localhost:8000/v1/rails/configs | jq .
+
+# call a chat completion (replace <CONFIG_ID>)
+curl -X POST http://localhost:8000/v1/chat/completions -H "Content-Type: application/json" -d '{"config_id":"<CONFIG_ID>","messages":[{"role":"user","content":"What is the capital of India?"}]}' | jq .
 ```
 
-## Integration with LiteLLM
+Look for fields like `messages`, `violations`, or `alerts`. A normal successful response typically includes `messages` with an `assistant` role and a content string. A rejection may also be returned as a `messages` array where the assistant content is a refusal message.
 
-NeMo Guardrails automatically integrates with LiteLLM Proxy when configured in `proxy_server_config.yaml`:
+Integration with LiteLLM proxy
+
+- Prefer API-based configuration with the proxy. Example `litellm` guardrails initializer expects these parameters (see `guardrail_initializers.py`):
 
 ```yaml
 guardrails:
-  - guardrail_name: "nemo_safety"
+  - guardrail_name: "nemo_guardrails"
     litellm_params:
-      guardrail: "nemo_guardrails"
-      mode: "during_call" # or "pre_call", "post_call"
-      config_path: "./nemo_config"
-      llm_model: "gemini/gemini-2.5-flash-lite"
-      llm_api_key: "AIzaSyA4Ulh5ES15bbzJsZ7ua8hfSFZyckrdOw4"
+      guardrails_url: "http://localhost:8000"
+      config_id: null # or the specific config id to lock to
+      timeout: 30
+      default_on: true
 ```
 
-## Logging
+Notes
 
-NeMo Guardrails uses emoji logging for easy identification:
+- If `guardrails_url` is missing in the proxy config, the proxy may pass `None` and fail when contacting the server (Invalid URL 'None/…'). Ensure `guardrails_url` is set or the proxy default is used.
+- If the guardrails server refuses safe questions, inspect `rails.co` and `actions.py` — some rules may be over-broad (e.g., match keywords like "capital" incorrectly). Narrow patterns or add test cases.
 
-- :shield: - Initialization and info messages
-- :white_tick: - Content passed guardrails
-- :no_entry_symbol: - Content blocked by guardrails
-  Check logs to see which messages were blocked:
+Advanced debugging tips
 
-```
-:shield: NeMo Guardrails initialized with config path: ./nemo_config
-:shield: Checking user message: Tell me how to hack...
-:no_entry_symbol: NeMo Guardrails BLOCKED user message (blocking phrase detected)
-```
+- Enable `--verbose` and `--auto-reload` when running `nemoguardrails server` during development.
+- Add a temporary debug action in `actions.py` to log raw user input and rule matching outputs.
+- If the server returns an empty JSON or 500, capture the full server traceback — it usually points to a missing package, invalid model name, or missing API key.
 
-## Resources
+Resources
 
-- [NeMo Guardrails Documentation](https://github.com/NVIDIA/NeMo-Guardrails)
-- [Colang Language Guide](https://github.com/NVIDIA/NeMo-Guardrails/blob/main/docs/user_guides/colang-language-syntax-guide.md)
-- [LiteLLM Guardrails Documentation](https://docs.litellm.ai/docs/proxy/guardrails)
+- NeMo Guardrails: https://github.com/NVIDIA/NeMo-Guardrails
+- Colang guide: https://github.com/NVIDIA/NeMo-Guardrails/tree/main/docs/user_guides
 
-GitHubGitHub
-GitHub - NVIDIA-NeMo/Guardrails: NeMo Guardrails is an open-source toolkit for easily adding programmable guardrails to LLM-based conversational systems.
-NeMo Guardrails is an open-source toolkit for easily adding programmable guardrails to LLM-based conversational systems. - NVIDIA-NeMo/Guardrails (66 kB)
-https://github.com/NVIDIA/NeMo-Guardrails
+If you want, I can:
 
-docs.litellm.aidocs.litellm.ai
-Page Not Found | liteLLM (645 kB)
+- Add a small example `config.yml` and a minimal `rails.co` (safe test rules) in this folder.
+- Add a `debug_actions.py` helper that logs raw API responses for debugging.
+
+---
+
+Last updated: Automated update to improve quickstart and troubleshooting steps.
